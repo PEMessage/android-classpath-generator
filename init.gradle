@@ -466,7 +466,11 @@ class JavaLanguageServerAndroidPlugin implements Plugin<Project> {
 
 allprojects {
     apply plugin: 'eclipse'
+    // using workaround from
+    // https://github.com/eclipse-jdtls/eclipse.jdt.ls/issues/3284#issuecomment-2566480071
     afterEvaluate {
-        it.getPlugins().apply(JavaLanguageServerAndroidPlugin)
+        afterEvaluate {
+            it.getPlugins().apply(JavaLanguageServerAndroidPlugin)
+        }
     }
 }
