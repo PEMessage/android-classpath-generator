@@ -40,13 +40,16 @@ class JavaLanguageServerAndroidPlugin implements Plugin<Project> {
 
     void apply(Project project) {
         if (!isSupportedAndroidProject(project)) {
+            println "[ACG]: not a android project"
             return
         }
         if (!project.hasProperty(ECLIPSE_PROPERTY)) {
+            println "[ACG]: do not detect eclipse plugin"
             return
         }
         File androidSDKFile = getAndroidSDKFile(project)
         if (androidSDKFile == null) {
+            println "[ACG]: android.jar file not founded"
             return
         }
         project.afterEvaluate {
