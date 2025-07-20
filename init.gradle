@@ -23,6 +23,8 @@ import java.nio.file.Paths
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 
+import java.lang.Thread;
+
 class JavaLanguageServerAndroidPlugin implements Plugin<Project> {
 
     private static final String ANDROID_PROPERTY = "android"
@@ -37,6 +39,10 @@ class JavaLanguageServerAndroidPlugin implements Plugin<Project> {
 
     private static final String OPTIONAL_ATTRIBUTE = "optional"
     private static final String TEST_ATTRIBUTE = "test"
+
+    // using `./gradlew -I init.gradle -Dorg.gradle.daemon=false -Dorg.gradle.debug=true` eclipse to debug
+    // using  `jdb -attach 5005 -sourcepath /` to attach, and then `cont`
+    private static int debugFlag = 0 // set to one to trap to forloop
 
     void apply(Project project) {
         if (!isSupportedAndroidProject(project)) {
@@ -53,6 +59,16 @@ class JavaLanguageServerAndroidPlugin implements Plugin<Project> {
             return
         }
         project.afterEvaluate {
+            // If you dont use ide and just using raw jdb to debug
+            // this snippet will help you founded out which thread to stop
+            if (debugFlag == 1) {
+                Thread currentThread = Thread.currentThread()
+                println "[AGP]: "+currentThread // using `threads` to findout which thread runing this script
+                // and then `suspend THREADID`, `where THREADID`
+                while(debugFlag) {
+                // jdb `set debugFlag = 1` to step out of this loop
+                }
+            }
             List<Object> variants = getAndroidDebuggableVariants(project)
             EclipseModel eclipseModel = (EclipseModel) project.property(ECLIPSE_PROPERTY)
             // eclipseModel.synchronizationTasks() is available since Gradle 5.4
