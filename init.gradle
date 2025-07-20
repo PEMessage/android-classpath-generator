@@ -465,6 +465,7 @@ class JavaLanguageServerAndroidPlugin implements Plugin<Project> {
 }
 
 allprojects {
+    apply plugin: 'eclipse'
     afterEvaluate {
         it.getPlugins().apply(JavaLanguageServerAndroidPlugin)
     }
