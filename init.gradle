@@ -69,6 +69,7 @@ class JavaLanguageServerAndroidPlugin implements Plugin<Project> {
                 // jdb `set debugFlag = 1` to step out of this loop
                 }
             }
+            // `stop at JavaLanguageServerAndroidPlugin$_apply_closure1:63`
             List<Object> variants = getAndroidDebuggableVariants(project)
             EclipseModel eclipseModel = (EclipseModel) project.property(ECLIPSE_PROPERTY)
             // eclipseModel.synchronizationTasks() is available since Gradle 5.4
