@@ -46,3 +46,10 @@ and clean cache if you need
 rm ~/.cache/jdtls/workspace/.metadata -rf  
 ```
 now android project should work well with jdtls
+
+
+# Also See
+[vim-android](https://github.com/hsanson/vim-android/blob/master/gradle/init.gradle) 
+This awesome vim-android plugin use similiar apporach, but do not rely on eclipse plugin.
+but generate metadata directly from android plugin. and manually create .classpath.
+`./gradlew -I init.gradle vim` this inspire me maybe jdtls using same way to do this, and turn out to be true.
