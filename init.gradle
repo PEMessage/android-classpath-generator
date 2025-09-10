@@ -94,7 +94,10 @@ class JavaLanguageServerAndroidPlugin implements Plugin<Project> {
             List<String> containers = new ArrayList<>()
             for (String containerName : eclipseModel.classpath.containers) {
                 if (containerName.contains("JavaSE")) {
-                    containers.add(containerName)
+                    // NOTE: this is a tradeoff, if this enabled, will report error in checkSystemLibrary
+                    // Due to missing java.base in android.jar, which will cause decompiler not work
+                    // Personally I would like to choice using incorrect java.* reference to make decompile work
+                    // containers.add(containerName)
                 }
             }
             eclipseModel.classpath.containers.removeAll(containers)
