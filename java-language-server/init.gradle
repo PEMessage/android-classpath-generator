@@ -1,0 +1,58 @@
+import groovy.json.JsonOutput
+
+allprojects {
+    // We use 'afterEvaluate' to ensure Android or Java plugins
+    // have finished loading sourceSets before we read them
+    afterEvaluate { project ->
+        project.task('generateJavaConfigJson') {
+            doLast {
+                def classPaths = []
+                def docPaths = []
+
+                // 1. Collect External Dependencies
+                project.configurations.findAll { it.canBeResolved }.each { config ->
+                    try {
+                        config.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+                            classPaths << artifact.file.absolutePath
+                        }
+                    } catch (Exception ignored) {
+                        // Skip configurations that cannot be resolved (common in Android)
+                    }
+                }
+
+                // 2. Collect Source Paths (Java & Android)
+                if (project.hasProperty('android')) {
+                    project.android.sourceSets.each { sourceSet ->
+                        sourceSet.java.srcDirs.each { dir ->
+                            if (dir.exists()) docPaths << dir.absolutePath
+                        }
+                    }
+                    // Add Android SDK
+                    project.android.getBootClasspath().each { file ->
+                        classPaths << file.absolutePath
+                    }
+                } else if (project.hasProperty('sourceSets')) {
+                    project.sourceSets.each { sourceSet ->
+                        sourceSet.allSource.srcDirs.each { dir ->
+                            if (dir.exists()) docPaths << dir.absolutePath
+                        }
+                    }
+                }
+
+                // 3. Generate the JSON
+                def configMap = [
+                    java: [
+                        classPath: classPaths.unique().sort(),
+                        docPath:   docPaths.unique().sort()
+                    ]
+                ]
+
+                def jsonFile = file("${project.buildDir}/java-dependencies.json")
+                jsonFile.parentFile.mkdirs()
+                jsonFile.text = JsonOutput.prettyPrint(JsonOutput.toJson(configMap))
+
+                println "[Success] ${project.name}: JSON generated at ${jsonFile.path}"
+            }
+        }
+    }
+}
