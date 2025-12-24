@@ -2,73 +2,75 @@ import groovy.json.JsonOutput
 
 allprojects {
     afterEvaluate { project ->
-        // Only register the task for projects that are actually Java or Android
+        // Trigger only for Java/Android projects
         if (!project.hasProperty('android') && !project.hasProperty('sourceSets')) return
 
         project.task('generateJavaConfigJson') {
             doLast {
-                def classPaths = []
-                def docPaths = []
+                def classPaths = new HashSet()
+                def docPaths = new HashSet() // This will hold both source dirs and source jars
 
-                // 1. Collect External & Project Dependencies
-                // Using 'files' on the configuration is more reliable than 'resolvedArtifacts'
-                project.configurations.findAll { it.canBeResolved }.each { config ->
+                // 1. Resolve Runtime Dependencies and their Source JARs
+                def targetConfigs = project.configurations.findAll {
+                    it.canBeResolved && (it.name.endsWith("RuntimeClasspath") || it.name == "runtimeClasspath")
+                }
+
+                targetConfigs.each { config ->
                     try {
-                        config.each { file ->
-                            classPaths << file.absolutePath
+                        config.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+                            // Add the binary JAR to classPaths
+                            classPaths << artifact.file.absolutePath
+
+                            // Query Gradle for the associated source JAR
+                            def components = project.dependencies.createArtifactResolutionQuery()
+                                .forComponents(artifact.id.componentIdentifier)
+                                .withArtifacts(JvmLibrary, SourcesArtifact)
+                                .execute()
+
+                            components.resolvedComponents.each { result ->
+                                result.getArtifacts(SourcesArtifact).each { sourceArtifact ->
+                                    if (sourceArtifact instanceof ResolvedArtifactResult) {
+                                        // Adding source JAR to docPaths as requested
+                                        docPaths << sourceArtifact.file.absolutePath
+                                    }
+                                }
+                            }
                         }
-                    } catch (Exception ignored) {
-                        // Skip unresolvable configs (common in complex Android setups)
+                    } catch (Exception e) {
+                        // Skip configs that fail to resolve
                     }
                 }
 
-                // 2. Collect Source Paths (Refined Android Logic)
+                // 2. Collect Project Source Directories (Android)
                 if (project.hasProperty('android')) {
                     def android = project.extensions.getByName('android')
 
-                    // Access sourceSets via the Extension
+                    // Add Android SDK to classpath
+                    android.getBootClasspath().each { classPaths << it.absolutePath }
+
                     android.sourceSets.each { sourceSet ->
-                        // Capture Java Directories (as per your reference)
-                        if (sourceSet.hasProperty('javaDirectories')) {
-                            sourceSet.javaDirectories.each { dir ->
-                                if (dir.exists()) docPaths << dir.absolutePath
-                            }
-                        } else if (sourceSet.hasProperty('java')) {
-                            // Fallback for older AGP versions
-                            sourceSet.java.srcDirs.each { dir ->
-                                if (dir.exists()) docPaths << dir.absolutePath
-                            }
-                        }
+                        def dirs = sourceSet.hasProperty('javaDirectories') ?
+                                   sourceSet.javaDirectories : sourceSet.java.srcDirs
+                        dirs.each { if (it.exists()) docPaths << it.absolutePath }
 
-                        // Capture Kotlin Directories (highly recommended for modern Android)
                         if (sourceSet.hasProperty('kotlinDirectories')) {
-                            sourceSet.kotlinDirectories.each { dir ->
-                                if (dir.exists()) docPaths << dir.absolutePath
-                            }
+                            sourceSet.kotlinDirectories.each { if (it.exists()) docPaths << it.absolutePath }
                         }
-                    }
-
-                    // Add Android SDK (Boot Classpath)
-                    android.getBootClasspath().each { file ->
-                        classPaths << file.absolutePath
                     }
                 }
 
-                // 3. Collect Source Paths
+                // 3. Collect Project Source Directories (Standard Java)
                 if (project.hasProperty('sourceSets')) {
-                    // Standard Java project logic
                     project.sourceSets.each { sourceSet ->
-                        sourceSet.allSource.srcDirs.each { dir ->
-                            if (dir.exists()) docPaths << dir.absolutePath
-                        }
+                        sourceSet.allSource.srcDirs.each { if (it.exists()) docPaths << it.absolutePath }
                     }
                 }
 
-                // 3. Generate the JSON
+                // 4. Generate the JSON Output
                 def configMap = [
                     java: [
-                        classPath: classPaths.unique().sort(),
-                        docPath:   docPaths.unique().sort()
+                        classPath: classPaths.sort(),
+                        docPath:   docPaths.sort()
                     ]
                 ]
 
