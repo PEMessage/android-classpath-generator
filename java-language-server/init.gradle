@@ -1,37 +1,62 @@
 import groovy.json.JsonOutput
 
 allprojects {
-    // We use 'afterEvaluate' to ensure Android or Java plugins
-    // have finished loading sourceSets before we read them
     afterEvaluate { project ->
+        // Only register the task for projects that are actually Java or Android
+        if (!project.hasProperty('android') && !project.hasProperty('sourceSets')) return
+
         project.task('generateJavaConfigJson') {
             doLast {
                 def classPaths = []
                 def docPaths = []
 
-                // 1. Collect External Dependencies
+                // 1. Collect External & Project Dependencies
+                // Using 'files' on the configuration is more reliable than 'resolvedArtifacts'
                 project.configurations.findAll { it.canBeResolved }.each { config ->
                     try {
-                        config.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-                            classPaths << artifact.file.absolutePath
+                        config.each { file ->
+                            classPaths << file.absolutePath
                         }
                     } catch (Exception ignored) {
-                        // Skip configurations that cannot be resolved (common in Android)
+                        // Skip unresolvable configs (common in complex Android setups)
                     }
                 }
 
-                // 2. Collect Source Paths (Java & Android)
+                // 2. Collect Source Paths (Refined Android Logic)
                 if (project.hasProperty('android')) {
-                    project.android.sourceSets.each { sourceSet ->
-                        sourceSet.java.srcDirs.each { dir ->
-                            if (dir.exists()) docPaths << dir.absolutePath
+                    def android = project.extensions.getByName('android')
+
+                    // Access sourceSets via the Extension
+                    android.sourceSets.each { sourceSet ->
+                        // Capture Java Directories (as per your reference)
+                        if (sourceSet.hasProperty('javaDirectories')) {
+                            sourceSet.javaDirectories.each { dir ->
+                                if (dir.exists()) docPaths << dir.absolutePath
+                            }
+                        } else if (sourceSet.hasProperty('java')) {
+                            // Fallback for older AGP versions
+                            sourceSet.java.srcDirs.each { dir ->
+                                if (dir.exists()) docPaths << dir.absolutePath
+                            }
+                        }
+
+                        // Capture Kotlin Directories (highly recommended for modern Android)
+                        if (sourceSet.hasProperty('kotlinDirectories')) {
+                            sourceSet.kotlinDirectories.each { dir ->
+                                if (dir.exists()) docPaths << dir.absolutePath
+                            }
                         }
                     }
-                    // Add Android SDK
-                    project.android.getBootClasspath().each { file ->
+
+                    // Add Android SDK (Boot Classpath)
+                    android.getBootClasspath().each { file ->
                         classPaths << file.absolutePath
                     }
-                } else if (project.hasProperty('sourceSets')) {
+                }
+
+                // 3. Collect Source Paths
+                if (project.hasProperty('sourceSets')) {
+                    // Standard Java project logic
                     project.sourceSets.each { sourceSet ->
                         sourceSet.allSource.srcDirs.each { dir ->
                             if (dir.exists()) docPaths << dir.absolutePath
