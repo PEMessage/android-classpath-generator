@@ -16,8 +16,8 @@ if [ ! -f gradlew ] ; then
     exit 1
 fi
 
-if [ -f "$CLASSPATH_CACHE_SCRIPT" ] ; then
-    ./gradlew -I "$CLASSPATH_CACHE_SCRIPT" eclipse
+if [ -f "$INIT_GRADLE" ] ; then
+    ./gradlew -I "$INIT_GRADLE" eclipse
 else
     echo "internal error"
 fi
